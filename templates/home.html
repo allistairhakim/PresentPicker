@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block main %}
+	<!--CSS-->
+	<div id = "name-section" class="mx-0 my-0">
+		<output for="customRange1" class="form-label">Price Budget: 1$</output>
+		<input id="priceBudget" type="range" class="form-range" value="1" min="1" max="1000" oninput="this.previousElementSibling.value = 'Price Budget: ' + this.value + '$'">
+		
+		<!--RECIPIENT-->
+		<h3 class="text-center mt-5 mb-4">Recipients</h3>
+		<div id="table">
+			<div class = "row my-2 mx-0">
+				<input class="col mx-0 form-control name me-1" placeholder="Name"></input>
+				<input class="col mx-0 form-control gift ms-1" placeholder="Gift"></input>
+			</div>
+		</div>
+		<div class="btn-group d-flex mx-0" role="group">
+	  	<button type="button" class="btn btn-primary w-100"id="add">+</button>
+		  <button type="button" class="btn btn-outline-primary w-20" id="submit">Submit</button>
+		</div>
+	</div>
+
+	<!--PICK GIFTS-->
+	<div id = "gift-section" class="mx-0 my-0" style="display: none">
+		<h3 class="text-center mt-5">Pick a gift</h3>
+		<ul class="nav nav-tabs mt-3" id="tabs" role="tablist">
+		</ul>
+	
+		<div class="tab-content" id="tabContents">
+			<div class="mb-3"></div>
+		</div>
+		<div class="mt-2">
+			<button type="button" class="btn btn-outline-primary w-20" onclick="console.log('aaa')" style="float: right" id="submitSelections">Submit</button>
+		</div>
+	</div>
+	<script>
+		const addButton = document.getElementById("add")
+		const table = document.getElementById("table")
+		var savedData
+		addButton.onclick = function(){table.insertAdjacentHTML('beforeend',`
+			<div class = "row my-2 mx-0">
+				<input class="col mx-0 form-control name me-1" placeholder="Name"></input>
+				<input class="col mx-0 form-control gift ms-1" placeholder="Gift"></input>
+			</div>
+		`)}
+		const submitButton = document.getElementById("submitSelections")
+		var indexs = []
+		submitButton.onclick = function() {
+			//pick gifts variables
+			const tabs = document.getElementById("tabs")
+			const tabContents = document.getElementById("tabContents")
+
+			//selection section
+			var namesSize = document.getElementsByClassName("tab-pane").length;
+			console.log(namesSize)
+			for(var i = 0; i < namesSize; i++) {
+				Array.from(document.getElementsByClassName("selection" + i)).forEach((element, index) => {
+					console.log(element)
+					if(element.childNodes[1].classList.contains("border")) indexs.push(index)
+				})
+			}
+
+			//check if all sections have a selection
+			if(indexs.length < namesSize) {
+				window.alert("All recipients need to have a selection");
+			} else {
+				//send data to server
+				var xhr = new XMLHttpRequest();
+				xhr.onreadystatechange = function() {
+					if (xhr.readyState == XMLHttpRequest.DONE) {
+						location.replace(xhr.responseText)
+					}
+				}
+				xhr.open("POST", "../../get_selections", true);
+				xhr.setRequestHeader('Content-Type', 'application/json');
+				xhr.send(JSON.stringify({
+					data: savedData,
+					index: indexs,
+				}));
+			}
+		}
+		submit.onclick = function () {
+			//get all data
+			var nmes = []
+			var gfts = []
+			Array.from(document.getElementsByClassName("name")).forEach((element) => nmes.push(element.value))
+			Array.from(document.getElementsByClassName("gift")).forEach((element) => gfts.push(element.value))
+			//send data to server
+			var xhr = new XMLHttpRequest();
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState == XMLHttpRequest.DONE) {
+					//save the data
+					//change sections
+					document.getElementById('name-section').style.display = 'none';
+					document.getElementById('gift-section').style.display = 'inline';
+					var data = JSON.parse(xhr.responseText)
+					savedData = data
+					data.forEach((element, mIndex) => {
+						tabs.insertAdjacentHTML('beforeend', `
+							<li class="nav-item" role="presentation">
+							<button class="nav-link" id="home-tab" data-bs-toggle="tab" data-bs-target="#` + element["name"] + `" type="button" role="tab" aria-controls="home" aria-selected="true">` + element["name"] +`</button>
+						</li>`)
+						tabContents.insertAdjacentHTML('beforeend', `
+							<div class="tab-pane fade" id="` + element["name"] + `" role="tabpanel" aria-labelledby="` + element["name"] + `-tab"><div class="row row-cols-1 row-cols-md-3 g-4">
+			 </div></div>`)
+						const tabCont = document.getElementById(element["name"]).childNodes[0]
+						element["list"].forEach((subData, index) => {
+							const card = document.createElement("div")
+							card.className = "col selection" + mIndex;
+							stars = Math.round(subData["stars"])
+							acc = ""
+							for(var i = 0; i < stars; i++) acc += "★"
+							for(var i = 0; i < (5 - stars); i++) acc += "☆"
+							card.innerHTML = `
+			 					<div class="card h-100 ${mIndex}" onclick = "Array.from(document.getElementsByClassName('${mIndex}')).forEach((temp) => {temp.className='card h-100 ${mIndex}';}); this.className='card h-100 border border-success ${mIndex}'">
+				 					<img src="${subData["image"]}" class="card-img-top" alt="...">
+				 					<div class="card-header">
+										<h4 class="card-title">${subData["title"]}</h4>
+									</div>
+									<div class="card-body">
+										${acc}
+									</div>
+				 				</div>
+							`
+							tabCont.appendChild(card)
+						})
+					})
+					//do something with the responses
+				}
+			}
+			xhr.open("POST", "../../get_gifts", true);
+			xhr.setRequestHeader('Content-Type', 'application/json');
+			xhr.send(JSON.stringify({
+				price: document.getElementById("priceBudget").value,
+				names: nmes,
+				gifts: gfts,
+			}));
+		}
+	</script>
+{% endblock %}
